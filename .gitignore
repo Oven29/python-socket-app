@@ -6,5 +6,5 @@ __pycache__/
 .vscode/
 .idea/
 
-sent.txt
-received.txt
+sent
+received
