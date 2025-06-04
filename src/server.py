@@ -2,7 +2,6 @@ import logging
 import socket
 import struct
 import sys
-from typing import List
 
 
 logger = logging.getLogger(__name__)

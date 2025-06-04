@@ -30,11 +30,16 @@ def run_client(host: str, port: int, filename: str) -> None:
         with open(filename, 'wb') as f:
             while True:
                 s.sendto(f'RECEIVE {i}'.encode(), server_addr)
-                data, _ = s.recvfrom(received_size)
+                try:
+                    data, _ = s.recvfrom(received_size)
+                except TimeoutError:
+                    continue
+
                 if not data:
                     continue
                 if data == b'__END__':
                     break
+
                 cur_index, chunk = struct.unpack(struct_format, data)
                 if cur_index != i:
                     continue
