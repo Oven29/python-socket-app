@@ -2,26 +2,9 @@ import logging
 import socket
 import struct
 import sys
-from typing import List
 
 
 logger = logging.getLogger(__name__)
-
-
-def write_file(filename: str, data: List[bytes]) -> None:
-    """
-        Write the data to the file.
-
-        Args:
-            filename (str): The name of the file to write to.
-            data (List of bytes): The pickle chunks to write to file.
-    """
-    chunks = [struct.unpack('!I1024s', chunk) for chunk in data]
-    chunks.sort(key=lambda x: x[0])
-
-    with open(filename, 'wb') as f:
-        for _, chunk in chunks:
-            f.write(chunk)
 
 
 def run_client(host: str, port: int, filename: str) -> None:
@@ -39,22 +22,25 @@ def run_client(host: str, port: int, filename: str) -> None:
 
         s.settimeout(5)
         i = 0
-        packets = []
         data = None
 
-        received_size = struct.calcsize('!I1024s')
+        struct_format = '!I32768s'
+        received_size = struct.calcsize(struct_format)
 
-        while True:
-            s.sendto(f'RECEIVE {i}'.encode(), server_addr)
-            data, _ = s.recvfrom(received_size)
-            if not data:
-                continue
-            if data == b'__END__':
-                break
-            packets.append(data)
-            i += 1
+        with open(filename, 'wb') as f:
+            while True:
+                s.sendto(f'RECEIVE {i}'.encode(), server_addr)
+                data, _ = s.recvfrom(received_size)
+                if not data:
+                    continue
+                if data == b'__END__':
+                    break
+                cur_index, chunk = struct.unpack(struct_format, data)
+                if cur_index != i:
+                    continue
+                f.write(chunk)
+                i += 1
 
-        write_file(filename, packets)
         logger.info(f'downloaded as "{filename}"')
 
 

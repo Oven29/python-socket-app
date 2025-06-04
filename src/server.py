@@ -8,30 +8,6 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 
-def split_file_into_packages(filename: str) -> List[bytes]:
-    """
-        Split the file into binary packets, including chunk`s index and chunk`s data.
-
-        Args:
-            filename (str): The name of the file to sent.
-
-        Returns:
-            List: A list of binary packets.
-    """
-    file_packets = []
-
-    with open(filename, "rb") as f:
-        chunk = f.read(1024)
-        i = 0
-        while chunk:
-            packet = struct.pack('!I1024s', i, chunk)
-            file_packets.append(packet)
-            i += 1
-            chunk = f.read(1024)
-
-    return file_packets
-
-
 def run_server(host: str, port: int, filename: str) -> None:
     """
         Run the socket server to sent the file.
@@ -46,29 +22,43 @@ def run_server(host: str, port: int, filename: str) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind((host, port))
         logger.info('waiting for request...')
-        
-        file_packets = split_file_into_packages(filename)
 
-        while True:
-            data, addr = s.recvfrom(1024)
+        cur_index = 0
+        chunk_size = 32768
+        struct_format = f'!I{chunk_size}s'
 
-            # Проверка запроса
-            decoded_data = data.decode()            
-            logger.info(f'received from {addr} data: {decoded_data}')
+        with open(filename, 'rb') as f:
+            data = f.read(chunk_size)
+            packet = struct.pack(struct_format, cur_index, data)
 
-            if not " " in decoded_data:
-                continue
-            flag, index = decoded_data.split(" ")
-            if not index.isdigit():
-                continue
+            while True:
+                data, addr = s.recvfrom(1024)
 
-            if flag == 'RECEIVE' and int(index) < len(file_packets):
-                logger.info(f'sending {index} packet to {addr}...')
-                s.sendto(file_packets[int(index)], addr)
-            elif flag == 'RECEIVE':
-                logger.info(f'finished to send on {addr}')
-                s.sendto(b'__END__', addr)
-                break
+                # Проверка запроса
+                decoded_data = data.decode()
+
+                if not " " in decoded_data:
+                    continue
+                flag, index = decoded_data.split(" ")
+                if not index.isdigit():
+                    continue
+
+                if flag != 'RECEIVE':
+                    continue
+
+                if cur_index == int(index):
+                    s.sendto(packet, addr)
+
+                elif int(index) > cur_index:
+                    cur_index = int(index)
+                    data = f.read(chunk_size)
+
+                    if not data:
+                        s.sendto(b'__END__', addr)
+                        break
+
+                    packet = struct.pack(struct_format, cur_index, data)
+                    s.sendto(packet, addr)
 
 
 def main() -> None:
