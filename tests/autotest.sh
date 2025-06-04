@@ -2,8 +2,10 @@
 
 FILE_ORIGINAL="sent"
 FILE_RECEIVED="received"
-FILE_SIZE_MB=2
+FILE_SIZE_MB=20
 SERVER_PORT=$((RANDOM + 10000))
+
+echo "Test started with file size $FILE_SIZE_MB MB"
 
 dd if=/dev/urandom of="$FILE_ORIGINAL" bs=1M count=$FILE_SIZE_MB status=none
 
